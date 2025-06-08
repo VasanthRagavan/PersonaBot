@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nietzsche Chatbot</title>
+<style>
+  body {
+    background-color: #121212;
+    color: #eee;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    max-width: 700px;
+    margin: 30px auto;
+    padding: 0 15px;
+  }
+  h1 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  #chat-window {
+    border: 1px solid #444;
+    border-radius: 8px;
+    height: 450px;
+    overflow-y: auto;
+    padding: 15px;
+    background: #222;
+    margin-bottom: 15px;
+    white-space: pre-wrap;
+  }
+  .message {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+  }
+  .user-msg {
+    background: #0645ad;
+    text-align: right;
+    font-weight: bold;
+  }
+  .assistant-msg {
+    background: #333;
+    font-family: 'Courier New', Courier, monospace;
+  }
+  .think {
+    background-color: #555 !important;
+    font-style: italic;
+  }
+  .result {
+    background-color: #0a9d0a !important;
+  }
+  .error {
+    background-color: #a00 !important;
+  }
+  form {
+    display: flex;
+    gap: 10px;
+  }
+  input[type="text"] {
+    flex-grow: 1;
+    padding: 12px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid #666;
+    background: #222;
+    color: #eee;
+  }
+  button {
+    background-color: #0a9d0a;
+    border: none;
+    padding: 12px 20px;
+    font-size: 16px;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+  }
+  button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+  }
+</style>
+</head>
+<body>
+
+<h1>Nietzsche Chatbot</h1>
+
+<div id="chat-window">
+  <p><em>Ask Nietzsche something profound...</em></p>
+</div>
+
+<form id="chat-form">
+  <input type="text" id="query-input" placeholder="Type your question here..." autocomplete="off" required />
+  <button type="submit" id="send-btn">Send</button>
+</form>
+
+<script>
+  const chatWindow = document.getElementById('chat-window');
+  const form = document.getElementById('chat-form');
+  const input = document.getElementById('query-input');
+  const sendBtn = document.getElementById('send-btn');
+
+  // Append message to chat window
+  function appendMessage(text, role, step) {
+    const div = document.createElement('div');
+    div.classList.add('message');
+    if (role === 'user') {
+      div.classList.add('user-msg');
+      div.textContent = "You: " + text;
+    } else if (role === 'assistant') {
+      div.classList.add('assistant-msg');
+      if (step === 'think') div.classList.add('think');
+      else if (step === 'result') div.classList.add('result');
+      else if (step === 'error') div.classList.add('error');
+
+      div.textContent = `Nietzsche ${step === 'think' ? 'thinks' : step === 'result' ? 'says' : ''}: ${text}`;
+    }
+    chatWindow.appendChild(div);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  async function sendQuery(query) {
+    sendBtn.disabled = true;
+    try {
+      const response = await fetch('/api/chat', {  // Update with your backend URL if needed
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+      if (!response.ok) throw new Error('Network error');
+      const data = await response.json();
+
+      // data.assistantMessage contains multiple JSON lines
+      const lines = data.assistantMessage.trim().split('\n');
+
+      for (const line of lines) {
+        try {
+          const parsed = JSON.parse(line);
+          appendMessage(parsed.content || '', 'assistant', parsed.step);
+        } catch {
+          appendMessage(line, 'assistant', 'error');
+        }
+      }
+    } catch (err) {
+      appendMessage("Error communicating with backend", 'assistant', 'error');
+    }
+    sendBtn.disabled = false;
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    appendMessage(text, 'user');
+    sendQuery(text);
+    input.value = '';
+    input.focus();
+  });
+</script>
+
+</body>
+</html>
